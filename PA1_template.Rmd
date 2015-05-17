@@ -1,0 +1,83 @@
+---
+title: "PA1_template.Rmd"
+author: "wog48"
+date: "Sunday, May 17, 2015"
+output: html_document
+---
+
+## Loading and preprocessing the data
+The raw data can be found in file activity.csv
+```{r}
+steps <- read.csv("activity.csv")
+Sys.setlocale("LC_TIME", "English")
+```
+## What is mean total number of steps taken per day?
+The following diagram shall show the distribution of the total number of steps done each day.
+```{r}
+stepsPerDay <- steps[!is.na(steps$steps),]
+stepsPerDay <- aggregate(stepsPerDay$steps, by = list(stepsPerDay$date), FUN = sum)
+names(stepsPerDay) <- c("Date","Steps")
+hist(stepsPerDay$Steps, main = "Distribution of steps taken per day", xlab = "Steps per Day", breaks = 20)
+```
+
+## What is the average daily activity pattern?
+The next diagram shall show how in average the activity is distribuited of a day.
+```{r}
+avgSteps <- steps[!is.na(steps$steps),]
+avgSteps <- aggregate(avgSteps$steps, by = list(avgSteps$interval), FUN = mean)
+convertTime <- function(timestamp){
+                     if(nchar(timestamp) == 1) timestamp <- paste('000', timestamp, sep = "" )
+                else if(nchar(timestamp) == 2) timestamp <- paste('00', timestamp, sep = "" )
+                else if(nchar(timestamp) == 3) timestamp <- paste('0', timestamp, sep = "" )
+                ##Need to use dot as separator instead of colon, as plot would not interpret e.g. 13:15 as n number.
+                timestamp <- paste(substr(timestamp,start=1,stop=2),".",substr(timestamp,start = 3, stop = 4),sep="")
+}
+for(i in 1:length(avgSteps[,1])){
+                avgSteps[i,1] <- convertTime(avgSteps[i,1])
+}
+plot(avgSteps$Group.1, avgSteps$x, xlab = "Five Minutes Intervalls [h]", ylab = "Avarage Number of Steps", type = "l")
+```
+
+## Imputing missing values
+Here the missing values are replaced by the avarage values within the same time intervall.
+```{r}
+count <- 0
+stepsWithSurrogate <- steps
+for(i in 1:length(stepsWithSurrogate$steps)){
+  if (is.na(stepsWithSurrogate$steps[i])){
+    count <- count + 1
+    stepsWithSurrogate$steps[i] <- avgSteps[avgSteps$Group.1 == convertTime(stepsWithSurrogate$interval[i]),2]
+    }
+}
+print(paste("Number of missing steps information: ", count))
+stepsPerDaySurrogate <- aggregate(stepsWithSurrogate$steps, by = list(stepsWithSurrogate$date), FUN = sum)
+names(stepsPerDaySurrogate) <- c("Date","Steps")
+hist(stepsPerDaySurrogate$Steps, main = "Distribution of steps taken per day", xlab = "Steps per Day", breaks = 20)
+print(paste("Mean w/o replacemant vs. w/ replacemant: ",mean(stepsPerDay$Steps), mean(stepsPerDaySurrogate$Steps)))
+print(paste("Median w/o replacemant vs. w/ replacemant: ",mean(stepsPerDay$Steps), mean(stepsPerDaySurrogate$Steps)))
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+Comparison of acitivity at the weekend and on workingdays
+```{r}
+stepsWeekend <- steps
+## Initialize weekend boolean indicator
+weekend <- c()
+for(i in 1:length(stepsWithSurrogate[,1])){
+  weekend <- c(weekend,FALSE)
+}
+stepsWeekend <- cbind(stepsWeekend, weekend)
+stepsWeekend[weekdays(as.Date(stepsWeekend[,2])) == "Sunday", 4] <- TRUE
+stepsWeekend[weekdays(as.Date(stepsWeekend[,2])) == "Saturday", 4] <- TRUE
+stepsWeekend <- stepsWeekend[!is.na(stepsWeekend$steps),]
+
+avgWeekday <- stepsWeekend[stepsWeekend$weekend == FALSE, ]
+avgWeekday <- aggregate(avgWeekday$steps, by = list(avgWeekday$interval), FUN = mean)
+
+avgWeekend <- stepsWeekend[stepsWeekend$weekend == TRUE, ]
+avgWeekend <- aggregate(avgWeekend$steps, by = list(avgWeekend$interval), FUN = mean)
+
+par(mfrow = c(2,1))
+plot(avgWeekday$Group.1, avgWeekday$x, xlab = "Five Minutes Intervalls [h]", ylab = "Avg #Steps",main = "Avarage Number of Steps on Weekdays", type = "l")
+plot(avgWeekend$Group.1, avgWeekend$x, xlab = "Five Minutes Intervalls [h]", ylab = "Avg #Steps", main = "Avarage Number of Steps on Weekend", type = "l")
+```
